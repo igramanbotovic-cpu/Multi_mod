@@ -1,17 +1,15 @@
--- Colin's Ultra Panel (2026)
+-- Colin's Compact Panel (2026)
 local player = game.Players.LocalPlayer
 local char = player.Character or player.CharacterAdded:Wait()
 local userInput = game:GetService("UserInputService")
 local runService = game:GetService("RunService")
-local tweenService = game:GetService("TweenService")
 
 -- Переменные состояний
 local speedEnabled = false
-local flyEnabled = false
 local noclipEnabled = false
 local godEnabled = false
+local currentSpeed = 16
 local originalSpeed = 16
-local flyVelocity = nil
 
 -- Создание GUI
 local screenGui = Instance.new("ScreenGui")
@@ -19,7 +17,7 @@ screenGui.Name = "ColinPanel"
 screenGui.Parent = player:WaitForChild("PlayerGui")
 
 local mainFrame = Instance.new("Frame")
-mainFrame.Size = UDim2.new(0, 300, 0, 400)
+mainFrame.Size = UDim2.new(0, 320, 0, 200)
 mainFrame.Position = UDim2.new(0, 50, 0, 50)
 mainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
 mainFrame.BackgroundTransparency = 0.05
@@ -29,7 +27,7 @@ mainFrame.Active = true
 mainFrame.Draggable = true
 mainFrame.Parent = screenGui
 
--- Заголовок (отвечает за перетаскивание)
+-- Заголовок
 local titleBar = Instance.new("Frame")
 titleBar.Size = UDim2.new(1, 0, 0, 30)
 titleBar.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
@@ -48,7 +46,6 @@ title.TextXAlignment = Enum.TextXAlignment.Left
 title.Font = Enum.Font.Gotham
 title.Parent = titleBar
 
--- Кнопка закрытия
 local closeBtn = Instance.new("TextButton")
 closeBtn.Size = UDim2.new(0, 20, 0, 20)
 closeBtn.Position = UDim2.new(1, -25, 0, 5)
@@ -61,113 +58,161 @@ closeBtn.BorderSizePixel = 0
 closeBtn.Parent = titleBar
 
 local contentFrame = Instance.new("Frame")
-contentFrame.Size = UDim2.new(1, -20, 1, -50)
-contentFrame.Position = UDim2.new(0, 10, 0, 40)
+contentFrame.Size = UDim2.new(1, -20, 1, -40)
+contentFrame.Position = UDim2.new(0, 10, 0, 35)
 contentFrame.BackgroundTransparency = 1
 contentFrame.Parent = mainFrame
 
--- Создание кнопок (равноудалённые, фиксированные позиции)
-local buttons = {}
-local buttonNames = {"Speed", "Fly", "Noclip", "God"}
-local buttonStatus = {false, false, false, false}
+local scrollFrame = Instance.new("ScrollingFrame")
+scrollFrame.Size = UDim2.new(1, 0, 1, 0)
+scrollFrame.BackgroundTransparency = 1
+scrollFrame.CanvasSize = UDim2.new(0, 0, 0, 250)
+scrollFrame.ScrollBarThickness = 5
+scrollFrame.Parent = contentFrame
 
-local startY = 10
-local gap = 70
+local listLayout = Instance.new("UIListLayout")
+listLayout.Padding = UDim.new(0, 8)
+listLayout.Parent = scrollFrame
 
-for i, name in ipairs(buttonNames) do
-    local btn = Instance.new("TextButton")
-    btn.Size = UDim2.new(0, 260, 0, 50)
-    btn.Position = UDim2.new(0.5, -130, 0, startY + (i-1) * gap)
-    btn.BackgroundColor3 = Color3.fromRGB(50, 50, 60)
-    btn.Text = name .. " ❌"
-    btn.TextColor3 = Color3.fromRGB(220, 220, 220)
-    btn.TextSize = 14
-    btn.Font = Enum.Font.Gotham
-    btn.BorderSizePixel = 0
-    btn.Parent = contentFrame
-    
-    -- Навесной эффект
-    btn.MouseEnter:Connect(function()
-        btn.BackgroundColor3 = Color3.fromRGB(70, 70, 85)
-    end)
-    btn.MouseLeave:Connect(function()
-        btn.BackgroundColor3 = Color3.fromRGB(50, 50, 60)
-    end)
-    
-    buttons[name] = btn
-end
-
--- Функция обновления текста кнопок
-local function updateButtonUI()
-    buttons["Speed"].Text = "Speed " .. (speedEnabled and "✅" or "❌")
-    buttons["Fly"].Text = "Fly " .. (flyEnabled and "✅" or "❌")
-    buttons["Noclip"].Text = "Noclip " .. (noclipEnabled and "✅" or "❌")
-    buttons["God"].Text = "God " .. (godEnabled and "✅" or "❌")
-end
-
--- === 1. Увеличение скорости ===
-local function setSpeed(enabled)
-    speedEnabled = enabled
+-- === Функция обновления скорости ===
+local function applySpeed()
     local humanoid = char:FindFirstChild("Humanoid")
-    if humanoid then
-        if enabled then
-            originalSpeed = humanoid.WalkSpeed
-            humanoid.WalkSpeed = 70
+    if humanoid and speedEnabled then
+        humanoid.WalkSpeed = currentSpeed
+    elseif humanoid and not speedEnabled then
+        humanoid.WalkSpeed = originalSpeed
+    end
+end
+
+-- === 1. Настройка скорости ===
+local speedFrame = Instance.new("Frame")
+speedFrame.Size = UDim2.new(1, 0, 0, 70)
+speedFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
+speedFrame.BorderSizePixel = 0
+speedFrame.Parent = scrollFrame
+
+local speedToggle = Instance.new("TextButton")
+speedToggle.Size = UDim2.new(0, 100, 0, 30)
+speedToggle.Position = UDim2.new(0, 5, 0, 5)
+speedToggle.BackgroundColor3 = Color3.fromRGB(50, 50, 60)
+speedToggle.Text = "Speed ❌"
+speedToggle.TextColor3 = Color3.fromRGB(220, 220, 220)
+speedToggle.TextSize = 13
+speedToggle.Font = Enum.Font.Gotham
+speedToggle.BorderSizePixel = 0
+speedToggle.Parent = speedFrame
+
+local speedSlider = Instance.new("TextButton")
+speedSlider.Size = UDim2.new(0, 20, 0, 20)
+speedSlider.Position = UDim2.new(0, 115, 0, 10)
+speedSlider.BackgroundColor3 = Color3.fromRGB(60, 60, 70)
+speedSlider.Text = "<"
+speedSlider.TextColor3 = Color3.fromRGB(255, 255, 255)
+speedSlider.TextSize = 14
+speedSlider.Font = Enum.Font.Gotham
+speedSlider.BorderSizePixel = 0
+speedSlider.Parent = speedFrame
+
+local speedValue = Instance.new("TextBox")
+speedValue.Size = UDim2.new(0, 60, 0, 25)
+speedValue.Position = UDim2.new(0, 145, 0, 7)
+speedValue.BackgroundColor3 = Color3.fromRGB(60, 60, 70)
+speedValue.Text = "70"
+speedValue.TextColor3 = Color3.fromRGB(255, 255, 255)
+speedValue.TextSize = 12
+speedValue.Font = Enum.Font.Gotham
+speedValue.BorderSizePixel = 0
+speedValue.Parent = speedFrame
+
+local speedPlus = Instance.new("TextButton")
+speedPlus.Size = UDim2.new(0, 20, 0, 20)
+speedPlus.Position = UDim2.new(0, 215, 0, 10)
+speedPlus.BackgroundColor3 = Color3.fromRGB(60, 60, 70)
+speedPlus.Text = ">"
+speedPlus.TextColor3 = Color3.fromRGB(255, 255, 255)
+speedPlus.TextSize = 14
+speedPlus.Font = Enum.Font.Gotham
+speedPlus.BorderSizePixel = 0
+speedPlus.Parent = speedFrame
+
+local speedLabel = Instance.new("TextLabel")
+speedLabel.Size = UDim2.new(0, 60, 0, 20)
+speedLabel.Position = UDim2.new(0, 250, 0, 12)
+speedLabel.BackgroundTransparency = 1
+speedLabel.Text = "(1-300)"
+speedLabel.TextColor3 = Color3.fromRGB(150, 150, 150)
+speedLabel.TextSize = 10
+speedLabel.Font = Enum.Font.Gotham
+speedLabel.Parent = speedFrame
+
+-- Управление скоростью
+local function updateSpeedValue()
+    speedValue.Text = tostring(currentSpeed)
+    if speedEnabled then
+        local hum = char:FindFirstChild("Humanoid")
+        if hum then hum.WalkSpeed = currentSpeed end
+    end
+end
+
+speedSlider.MouseButton1Click:Connect(function()
+    currentSpeed = math.max(1, currentSpeed - 5)
+    updateSpeedValue()
+end)
+
+speedPlus.MouseButton1Click:Connect(function()
+    currentSpeed = math.min(300, currentSpeed + 5)
+    updateSpeedValue()
+end)
+
+speedValue.FocusLost:Connect(function()
+    local num = tonumber(speedValue.Text)
+    if num then
+        currentSpeed = math.clamp(num, 1, 300)
+        updateSpeedValue()
+    else
+        updateSpeedValue()
+    end
+end)
+
+local function toggleSpeed()
+    speedEnabled = not speedEnabled
+    speedToggle.Text = speedEnabled and "Speed ✅" or "Speed ❌"
+    local hum = char:FindFirstChild("Humanoid")
+    if hum then
+        if speedEnabled then
+            originalSpeed = hum.WalkSpeed
+            hum.WalkSpeed = currentSpeed
         else
-            humanoid.WalkSpeed = originalSpeed
+            hum.WalkSpeed = originalSpeed
         end
     end
-    updateButtonUI()
 end
 
--- === 2. Умение летать ===
-local function setFly(enabled)
-    flyEnabled = enabled
-    local humanoid = char:FindFirstChild("Humanoid")
-    local hrp = char:FindFirstChild("HumanoidRootPart")
-    if not humanoid or not hrp then return end
+speedToggle.MouseButton1Click:Connect(toggleSpeed)
+
+-- === 2. Noclip ===
+local noclipFrame = Instance.new("Frame")
+noclipFrame.Size = UDim2.new(1, 0, 0, 40)
+noclipFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
+noclipFrame.BorderSizePixel = 0
+noclipFrame.Parent = scrollFrame
+
+local noclipToggle = Instance.new("TextButton")
+noclipToggle.Size = UDim2.new(0, 200, 0, 30)
+noclipToggle.Position = UDim2.new(0, 5, 0, 5)
+noclipToggle.BackgroundColor3 = Color3.fromRGB(50, 50, 60)
+noclipToggle.Text = "Noclip ❌"
+noclipToggle.TextColor3 = Color3.fromRGB(220, 220, 220)
+noclipToggle.TextSize = 13
+noclipToggle.Font = Enum.Font.Gotham
+noclipToggle.BorderSizePixel = 0
+noclipToggle.Parent = noclipFrame
+
+local function toggleNoclip()
+    noclipEnabled = not noclipEnabled
+    noclipToggle.Text = noclipEnabled and "Noclip ✅" or "Noclip ❌"
     
-    if enabled then
-        humanoid.PlatformStand = true
-        flyVelocity = Instance.new("BodyVelocity")
-        flyVelocity.MaxForce = Vector3.new(10000, 10000, 10000)
-        flyVelocity.Velocity = Vector3.new(0, 0, 0)
-        flyVelocity.Parent = hrp
-        
-        local bg = Instance.new("BodyGyro")
-        bg.MaxTorque = Vector3.new(10000, 10000, 10000)
-        bg.Parent = hrp
-        
-        runService:BindToRenderStep("FlyControl", 100, function()
-            if not flyEnabled or not hrp or not hrp.Parent then return end
-            local move = Vector3.new()
-            if userInput:IsKeyDown(Enum.KeyCode.W) then move = move + Vector3.new(0, 0, -1) end
-            if userInput:IsKeyDown(Enum.KeyCode.S) then move = move + Vector3.new(0, 0, 1) end
-            if userInput:IsKeyDown(Enum.KeyCode.A) then move = move + Vector3.new(-1, 0, 0) end
-            if userInput:IsKeyDown(Enum.KeyCode.D) then move = move + Vector3.new(1, 0, 0) end
-            if userInput:IsKeyDown(Enum.KeyCode.Space) then move = move + Vector3.new(0, 1, 0) end
-            if userInput:IsKeyDown(Enum.KeyCode.LeftControl) then move = move + Vector3.new(0, -1, 0) end
-            
-            local cam = workspace.CurrentCamera
-            local forward = cam.CFrame.LookVector
-            local right = cam.CFrame.RightVector
-            local velocity = (forward * move.Z + right * move.X + Vector3.new(0, move.Y, 0)) * 80
-            if flyVelocity then flyVelocity.Velocity = velocity end
-        end)
-    else
-        humanoid.PlatformStand = false
-        if flyVelocity then flyVelocity:Destroy() end
-        runService:UnbindFromRenderStep("FlyControl")
-        local bg = hrp:FindFirstChild("BodyGyro")
-        if bg then bg:Destroy() end
-    end
-    updateButtonUI()
-end
-
--- === 3. Noclip ===
-local function setNoclip(enabled)
-    noclipEnabled = enabled
-    if enabled then
+    if noclipEnabled then
         runService:BindToRenderStep("Noclip", 101, function()
             if not noclipEnabled then return end
             char = player.Character
@@ -190,18 +235,40 @@ local function setNoclip(enabled)
             end
         end
     end
-    updateButtonUI()
 end
 
--- === 4. Бессмертие ===
-local function setGod(enabled)
-    godEnabled = enabled
+noclipToggle.MouseButton1Click:Connect(toggleNoclip)
+
+-- === 3. Бессмертие ===
+local godFrame = Instance.new("Frame")
+godFrame.Size = UDim2.new(1, 0, 0, 40)
+godFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
+godFrame.BorderSizePixel = 0
+godFrame.Parent = scrollFrame
+
+local godToggle = Instance.new("TextButton")
+godToggle.Size = UDim2.new(0, 200, 0, 30)
+godToggle.Position = UDim2.new(0, 5, 0, 5)
+godToggle.BackgroundColor3 = Color3.fromRGB(50, 50, 60)
+godToggle.Text = "God ❌"
+godToggle.TextColor3 = Color3.fromRGB(220, 220, 220)
+godToggle.TextSize = 13
+godToggle.Font = Enum.Font.Gotham
+godToggle.BorderSizePixel = 0
+godToggle.Parent = godFrame
+
+local function toggleGod()
+    godEnabled = not godEnabled
+    godToggle.Text = godEnabled and "God ✅" or "God ❌"
+    
     local humanoid = char:FindFirstChild("Humanoid")
     if humanoid then
-        if enabled then
+        if godEnabled then
             humanoid.BreakJointsOnDeath = false
             humanoid.MaxHealth = math.huge
             humanoid.Health = math.huge
+            
+            -- Следим за здоровьем
             humanoid:GetPropertyChangedSignal("Health"):Connect(function()
                 if godEnabled and humanoid.Health <= 0 then
                     humanoid.Health = 10000
@@ -213,53 +280,51 @@ local function setGod(enabled)
             if humanoid.Health > 100 then humanoid.Health = 100 end
         end
     end
-    updateButtonUI()
 end
 
--- === 5. Телепорт к людям ===
-local function createTeleportPanel()
-    local teleFrame = Instance.new("Frame")
-    teleFrame.Size = UDim2.new(0, 250, 0, 300)
-    teleFrame.Position = UDim2.new(1, -260, 0, 50)
-    teleFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
-    teleFrame.BackgroundTransparency = 0.05
-    teleFrame.BorderSizePixel = 1
-    teleFrame.BorderColor3 = Color3.fromRGB(80, 80, 90)
-    teleFrame.Parent = screenGui
+godToggle.MouseButton1Click:Connect(toggleGod)
+
+-- === 4. Телепорт к людям (сворачиваемое меню) ===
+local teleportFrame = Instance.new("Frame")
+teleportFrame.Size = UDim2.new(1, 0, 0, 40)
+teleportFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
+teleportFrame.BorderSizePixel = 0
+teleportFrame.Parent = scrollFrame
+
+local teleportHeader = Instance.new("TextButton")
+teleportHeader.Size = UDim2.new(1, -10, 0, 30)
+teleportHeader.Position = UDim2.new(0, 5, 0, 5)
+teleportHeader.BackgroundColor3 = Color3.fromRGB(50, 50, 60)
+teleportHeader.Text = "Люди ▼"
+teleportHeader.TextColor3 = Color3.fromRGB(220, 220, 220)
+teleportHeader.TextSize = 13
+teleportHeader.Font = Enum.Font.Gotham
+teleportHeader.BorderSizePixel = 0
+teleportHeader.Parent = teleportFrame
+
+local playerListFrame = Instance.new("ScrollingFrame")
+playerListFrame.Size = UDim2.new(1, 0, 0, 120)
+playerListFrame.Position = UDim2.new(0, 0, 0, 40)
+playerListFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 40)
+playerListFrame.BorderSizePixel = 0
+playerListFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
+playerListFrame.ScrollBarThickness = 4
+playerListFrame.Visible = false
+playerListFrame.Parent = teleportFrame
+
+local playerListLayout = Instance.new("UIListLayout")
+playerListLayout.Padding = UDim.new(0, 3)
+playerListLayout.Parent = playerListFrame
+
+local isOpen = false
+teleportHeader.MouseButton1Click:Connect(function()
+    isOpen = not isOpen
+    playerListFrame.Visible = isOpen
+    teleportHeader.Text = isOpen and "Люди ▲" or "Люди ▼"
     
-    local teleTitle = Instance.new("TextLabel")
-    teleTitle.Size = UDim2.new(1, 0, 0, 25)
-    teleTitle.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
-    teleTitle.Text = "Игроки"
-    teleTitle.TextColor3 = Color3.fromRGB(200, 200, 200)
-    teleTitle.TextSize = 12
-    teleTitle.Font = Enum.Font.Gotham
-    teleTitle.Parent = teleFrame
-    
-    local listFrame = Instance.new("ScrollingFrame")
-    listFrame.Size = UDim2.new(1, -10, 1, -35)
-    listFrame.Position = UDim2.new(0, 5, 0, 30)
-    listFrame.BackgroundTransparency = 1
-    listFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
-    listFrame.ScrollBarThickness = 6
-    listFrame.Parent = teleFrame
-    
-    local listLayout = Instance.new("UIListLayout")
-    listLayout.Padding = UDim.new(0, 5)
-    listLayout.Parent = listFrame
-    
-    local refreshBtn = Instance.new("TextButton")
-    refreshBtn.Size = UDim2.new(0, 50, 0, 20)
-    refreshBtn.Position = UDim2.new(1, -55, 0, 3)
-    refreshBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 70)
-    refreshBtn.Text = "⟳"
-    refreshBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    refreshBtn.TextSize = 12
-    refreshBtn.Font = Enum.Font.Gotham
-    refreshBtn.Parent = teleFrame
-    
-    local function refreshPlayers()
-        for _, child in pairs(listFrame:GetChildren()) do
+    if isOpen then
+        -- Обновляем список игроков
+        for _, child in pairs(playerListFrame:GetChildren()) do
             if child:IsA("TextButton") then child:Destroy() end
         end
         
@@ -268,13 +333,14 @@ local function createTeleportPanel()
             if plr ~= player then
                 local btn = Instance.new("TextButton")
                 btn.Size = UDim2.new(1, -10, 0, 30)
+                btn.Position = UDim2.new(0, 5, 0, 0)
                 btn.BackgroundColor3 = Color3.fromRGB(50, 50, 60)
                 btn.Text = plr.Name
                 btn.TextColor3 = Color3.fromRGB(220, 220, 220)
                 btn.TextSize = 12
                 btn.Font = Enum.Font.Gotham
                 btn.BorderSizePixel = 0
-                btn.Parent = listFrame
+                btn.Parent = playerListFrame
                 
                 btn.MouseButton1Click:Connect(function()
                     local targetChar = plr.Character
@@ -287,36 +353,45 @@ local function createTeleportPanel()
                 end)
             end
         end
-        listFrame.CanvasSize = UDim2.new(0, 0, 0, listLayout.AbsoluteContentSize.Y)
+        playerListFrame.CanvasSize = UDim2.new(0, 0, 0, playerListLayout.AbsoluteContentSize.Y)
+        playerListFrame.CanvasPosition = Vector2.new(0, 0)
     end
-    
-    refreshBtn.MouseButton1Click:Connect(refreshPlayers)
-    refreshPlayers()
-end
-
--- Назначение действий кнопкам
-buttons["Speed"].MouseButton1Click:Connect(function() setSpeed(not speedEnabled) end)
-buttons["Fly"].MouseButton1Click:Connect(function() setFly(not flyEnabled) end)
-buttons["Noclip"].MouseButton1Click:Connect(function() setNoclip(not noclipEnabled) end)
-buttons["God"].MouseButton1Click:Connect(function() setGod(not godEnabled) end)
-
-closeBtn.MouseButton1Click:Connect(function()
-    screenGui:Destroy()
-    setSpeed(false)
-    setFly(false)
-    setNoclip(false)
-    setGod(false)
 end)
 
-updateButtonUI()
-createTeleportPanel()
+-- Обновляем размер Canvas
+listLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+    scrollFrame.CanvasSize = UDim2.new(0, 0, 0, listLayout.AbsoluteContentSize.Y + 10)
+end)
+scrollFrame.CanvasSize = UDim2.new(0, 0, 0, 250)
 
--- Обновление персонажа при респавне
+-- Закрытие панели
+closeBtn.MouseButton1Click:Connect(function()
+    screenGui:Destroy()
+    if speedEnabled then
+        local hum = char:FindFirstChild("Humanoid")
+        if hum then hum.WalkSpeed = 16 end
+    end
+    if noclipEnabled then
+        runService:UnbindFromRenderStep("Noclip")
+        for _, part in pairs(char:GetDescendants()) do
+            if part:IsA("BasePart") then part.CanCollide = true end
+        end
+    end
+    if godEnabled then
+        local hum = char:FindFirstChild("Humanoid")
+        if hum then
+            hum.BreakJointsOnDeath = true
+            hum.MaxHealth = 100
+        end
+    end
+end)
+
+-- Обновление персонажа
 player.CharacterAdded:Connect(function(newChar)
     char = newChar
     if speedEnabled then
         local hum = char:FindFirstChild("Humanoid")
-        if hum then hum.WalkSpeed = 70 end
+        if hum then hum.WalkSpeed = currentSpeed end
     end
     if godEnabled then
         local hum = char:FindFirstChild("Humanoid")
@@ -326,6 +401,12 @@ player.CharacterAdded:Connect(function(newChar)
             hum.Health = math.huge
         end
     end
+    if noclipEnabled then
+        task.wait(0.5)
+        for _, part in pairs(char:GetDescendants()) do
+            if part:IsA("BasePart") then part.CanCollide = false end
+        end
+    end
 end)
 
-print("Colin Panel загружена. Панель можно перетаскивать за заголовок.")
+print("Colin Panel v2 загружена. Настройка скорости 1-300, Noclip, God, сворачиваемое меню игроков.")
